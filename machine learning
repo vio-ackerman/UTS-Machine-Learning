@@ -1,0 +1,152 @@
+# =============================================
+# TUGAS KLASIFIKASI
+# Nama  : Saviola Dwi Saputra
+# NIM   : 23231011400200
+# =============================================
+
+# 1. Import Library
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import (
+    confusion_matrix, classification_report,
+    accuracy_score, ConfusionMatrixDisplay, roc_curve, auc
+)
+from sklearn.preprocessing import label_binarize
+
+# =============================================
+# 2. Load Dataset
+# =============================================
+iris = load_iris()
+df = pd.DataFrame(iris.data, columns=iris.feature_names)
+df['target'] = iris.target
+df['target_name'] = df['target'].apply(lambda x: iris.target_names[x])
+
+print("===== Dataset Iris =====")
+print(df.head())
+print("\nInformasi Dataset:")
+print(df.info())
+print("\nDeskripsi Statistik:")
+print(df.describe())
+
+# =============================================
+# 3. Exploratory Data Analysis (EDA)
+# =============================================
+sns.pairplot(df, hue='target_name')
+plt.suptitle("Visualisasi Pairplot Dataset Iris", y=1.02)
+plt.show()
+
+plt.figure(figsize=(8, 5))
+# ✅ Perbaikan: hanya ambil kolom numerik
+sns.heatmap(df.select_dtypes(include='number').corr(), annot=True, cmap='coolwarm')
+plt.title("Korelasi antar Fitur")
+plt.show()
+
+# =============================================
+# 4. Split Data (Train & Test)
+# =============================================
+X = df.drop(['target', 'target_name'], axis=1)
+y = df['target']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+print(f"Jumlah data train: {X_train.shape[0]}")
+print(f"Jumlah data test : {X_test.shape[0]}")
+
+# =============================================
+# 5. Inisialisasi Model
+# =============================================
+log_model = LogisticRegression(max_iter=200)
+tree_model = DecisionTreeClassifier(random_state=42)
+
+# =============================================
+# 6. Training Model
+# =============================================
+log_model.fit(X_train, y_train)
+tree_model.fit(X_train, y_train)
+
+# =============================================
+# 7. Prediksi
+# =============================================
+y_pred_log = log_model.predict(X_test)
+y_pred_tree = tree_model.predict(X_test)
+
+# =============================================
+# 8. Evaluasi Model
+# =============================================
+print("\n===== LOGISTIC REGRESSION =====")
+print(confusion_matrix(y_test, y_pred_log))
+print(classification_report(y_test, y_pred_log))
+print("Accuracy:", round(accuracy_score(y_test, y_pred_log), 3))
+
+print("\n===== DECISION TREE =====")
+print(confusion_matrix(y_test, y_pred_tree))
+print(classification_report(y_test, y_pred_tree))
+print("Accuracy:", round(accuracy_score(y_test, y_pred_tree), 3))
+
+# =============================================
+# 9. Visualisasi Confusion Matrix
+# =============================================
+ConfusionMatrixDisplay.from_estimator(log_model, X_test, y_test)
+plt.title("Confusion Matrix - Logistic Regression")
+plt.show()
+
+ConfusionMatrixDisplay.from_estimator(tree_model, X_test, y_test)
+plt.title("Confusion Matrix - Decision Tree")
+plt.show()
+
+# =============================================
+# 10. ROC Curve (Opsional)
+# =============================================
+# Binarisasi label untuk multiclass ROC
+y_bin = label_binarize(y_test, classes=[0, 1, 2])
+log_prob = log_model.predict_proba(X_test)
+tree_prob = tree_model.predict_proba(X_test)
+
+fpr_log, tpr_log, roc_auc_log = {}, {}, {}
+fpr_tree, tpr_tree, roc_auc_tree = {}, {}, {}
+
+for i in range(3):
+    fpr_log[i], tpr_log[i], _ = roc_curve(y_bin[:, i], log_prob[:, i])
+    roc_auc_log[i] = auc(fpr_log[i], tpr_log[i])
+
+    fpr_tree[i], tpr_tree[i], _ = roc_curve(y_bin[:, i], tree_prob[:, i])
+    roc_auc_tree[i] = auc(fpr_tree[i], tpr_tree[i])
+
+plt.figure(figsize=(8, 5))
+for i in range(3):
+    plt.plot(fpr_log[i], tpr_log[i], linestyle='--', label=f'LogReg Class {i} (AUC={roc_auc_log[i]:.2f})')
+    plt.plot(fpr_tree[i], tpr_tree[i], label=f'DecTree Class {i} (AUC={roc_auc_tree[i]:.2f})')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve per Class')
+plt.legend()
+plt.show()
+
+# =============================================
+# 11. Kesimpulan
+# =============================================
+acc_log = accuracy_score(y_test, y_pred_log)
+acc_tree = accuracy_score(y_test, y_pred_tree)
+
+print("\n===== PERBANDINGAN MODEL =====")
+print(f"Akurasi Logistic Regression : {acc_log:.3f}")
+print(f"Akurasi Decision Tree        : {acc_tree:.3f}")
+
+if acc_tree > acc_log:
+    print("Decision Tree memberikan hasil lebih baik pada dataset ini.")
+else:
+    print("Logistic Regression memberikan hasil lebih baik atau seimbang.")
+
+print("\n=== Kesimpulan ===")
+print("Kedua model memiliki performa tinggi pada dataset Iris. "
+      "Decision Tree menghasilkan akurasi sempurna (100%) namun berpotensi overfitting, "
+      "sedangkan Logistic Regression lebih sederhana dan cukup akurat (sekitar 97%).")
